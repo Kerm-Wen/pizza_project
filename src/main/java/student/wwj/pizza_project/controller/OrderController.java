@@ -27,7 +27,13 @@ public class OrderController {
         return orderRepository.findAll();
     }
 
-    // 2. 建立訂單並自動扣庫存 (POST)
+    // 2. 根據 ID 查詢單一訂單 (GET /api/orders/{id})
+    @GetMapping("/{id}")
+    public Orders getOrderById(@PathVariable Long id) {
+        return orderRepository.findById(id).orElse(null);
+    }
+
+    // 3. 建立訂單並自動扣庫存 (POST)
     @PostMapping
     public String createOrder(@RequestBody OrderRequest request) {
         // 先找出客人想買的披薩
@@ -37,7 +43,7 @@ public class OrderController {
             return "下單失敗：找不到此編號的披薩！";
         }
 
-        // 檢查庫存是否夠
+        // 檢查庫存是否夠 (防呆機制)
         if (pizza.getStock() < request.getQuantity()) {
             return "下單失敗：庫存不足！目前剩餘庫存：" + pizza.getStock();
         }
@@ -60,5 +66,28 @@ public class OrderController {
         orderRepository.save(order);
 
         return "下單成功！感謝 " + request.getCustomerName() + " 購買 " + request.getQuantity() + " 個 " + pizza.getName();
+    }
+
+    // 4. 取消訂單並自動回補庫存 (DELETE /api/orders/{id})
+    @DeleteMapping("/{id}")
+    public String cancelOrder(@PathVariable Long id) {
+        // 找尋是否有這筆訂單
+        Orders order = orderRepository.findById(id).orElse(null);
+        if (order == null) {
+            return "取消失敗：找不到編號為 " + id + " 的訂單！";
+        }
+
+        // 找尋對應的披薩
+        Pizza pizza = pizzaRepository.findById(order.getPizzaId()).orElse(null);
+        if (pizza != null) {
+            // 把原本買的數量加回庫存
+            pizza.setStock(pizza.getStock() + order.getQuantity());
+            pizzaRepository.save(pizza);
+        }
+
+        // 刪除訂單
+        orderRepository.deleteById(id);
+
+        return "訂單編號 " + id + " 已成功取消，且商品庫存已自動回補！";
     }
 }

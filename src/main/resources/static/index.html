@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>披薩點餐系統</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 20px; background-color: #f9f9f9; }
+        h1, h2 { color: #333; }
+        .card { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f4a261; color: white; }
+        input, select, button { padding: 8px; margin-right: 10px; border-radius: 4px; border: 1px solid #ccc; }
+        button { background-color: #e76f51; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #d65a3c; }
+        .btn-cancel { background-color: #6c757d; }
+        .btn-cancel:hover { background-color: #5a6268; }
+    </style>
+</head>
+<body>
+
+    <h1>🍕 披薩線上點餐系統</h1>
+
+    <!-- 1. 菜單區塊 -->
+    <div class="card">
+        <h2>📋 今日菜單</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>編號</th>
+                    <th>披薩名稱</th>
+                    <th>價格</th>
+                    <th>說明</th>
+                    <th>剩餘庫存</th>
+                </tr>
+            </thead>
+            <tbody id="pizza-list"></tbody>
+        </table>
+    </div>
+
+    <!-- 2. 點餐表單區塊 -->
+    <div class="card">
+        <h2>🛒 我要點餐</h2>
+        <form id="order-form">
+            <label>選擇披薩：</label>
+            <select id="pizza-select" required></select>
+
+            <label>數量：</label>
+            <input type="number" id="quantity" min="1" value="1" required style="width: 60px;">
+
+            <label>顧客姓名：</label>
+            <input type="text" id="customer-name" placeholder="請輸入姓名" required>
+
+            <button type="submit">送出訂單</button>
+        </form>
+    </div>
+
+    <!-- 3. 訂單紀錄區塊 -->
+    <div class="card">
+        <h2>🧾 歷史訂單紀錄</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>訂單編號</th>
+                    <th>顧客姓名</th>
+                    <th>披薩名稱</th>
+                    <th>數量</th>
+                    <th>總金額</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="order-list"></tbody>
+        </table>
+    </div>
+
+    <script>
+        // 初始化載入菜單與訂單
+        document.addEventListener("DOMContentLoaded", () => {
+            loadPizzas();
+            loadOrders();
+        });
+
+        // 1. 取得所有披薩 (GET /api/pizzas)
+        async function loadPizzas() {
+            const response = await fetch('/api/pizzas');
+            const pizzas = await response.json();
+
+            const pizzaList = document.getElementById('pizza-list');
+            const pizzaSelect = document.getElementById('pizza-select');
+            pizzaList.innerHTML = '';
+            pizzaSelect.innerHTML = '';
+
+            pizzas.forEach(p => {
+                // 渲染菜單表格
+                pizzaList.innerHTML += `
+                    <tr>
+                        <td>${p.id}</td>
+                        <td>${p.name}</td>
+                        <td>$${p.price}</td>
+                        <td>${p.description || '-'}</td>
+                        <td>${p.stock}</td>
+                    </tr>
+                `;
+                // 渲染下拉選單（只顯示上架中且有庫存的披薩）
+                if (p.isAvailable && p.stock > 0) {
+                    pizzaSelect.innerHTML += `<option value="${p.id}">${p.name} ($${p.price})</option>`;
+                }
+            });
+        }
+
+        // 2. 送出訂單 (POST /api/orders)
+        document.getElementById('order-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const orderData = {
+                pizzaId: parseInt(document.getElementById('pizza-select').value),
+                quantity: parseInt(document.getElementById('quantity').value),
+                customerName: document.getElementById('customer-name').value
+            };
+
+            const response = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData)
+            });
+
+            const resultText = await response.text();
+            alert(resultText); // 顯示後端回傳的成功或庫存不足訊息
+
+            // 清空姓名欄位並重新整理菜單庫存與訂單列表
+            document.getElementById('customer-name').value = '';
+            loadPizzas();
+            loadOrders();
+        });
+
+        // 3. 取得所有訂單 (GET /api/orders)
+        async function loadOrders() {
+            const response = await fetch('/api/orders');
+            const orders = await response.json();
+
+            const orderList = document.getElementById('order-list');
+            orderList.innerHTML = '';
+
+            orders.forEach(o => {
+                orderList.innerHTML += `
+                    <tr>
+                        <td>${o.id}</td>
+                        <td>${o.customerName}</td>
+                        <td>${o.pizzaName}</td>
+                        <td>${o.quantity}</td>
+                        <td>$${o.totalPrice}</td>
+                        <td>
+                            <button class="btn-cancel" onclick="cancelOrder(${o.id})">取消訂單</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // 4. 取消訂單 (DELETE /api/orders/{id})
+        async function cancelOrder(orderId) {
+            if (!confirm(`確定要取消訂單編號 ${orderId} 嗎？`)) return;
+
+            const response = await fetch(`/api/orders/${orderId}`, {
+                method: 'DELETE'
+            });
+
+            const resultText = await response.text();
+            alert(resultText);
+
+            // 重新整理菜單庫存與訂單列表
+            loadPizzas();
+            loadOrders();
+        }
+    </script>
+
+</body>
+</html>
