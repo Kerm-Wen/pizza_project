@@ -52,6 +52,13 @@
             <label>顧客姓名：</label>
             <input type="text" id="customer-name" placeholder="請輸入姓名" required>
 
+            <label>付款方式：</label>
+            <select id="payment-method" required>
+                <option value="CASH">現場付現 (Cash)</option>
+                <option value="LINE_PAY">LINE Pay 線上支付</option>
+                <option value="NEWEBPAY">藍新金流 (NewebPay)</option>
+            </select>
+
             <button type="submit">送出訂單</button>
         </form>
     </div>
@@ -113,10 +120,12 @@
         document.getElementById('order-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            // 💡 也就是在這裡把畫面上選取的付款方式抓進來！
             const orderData = {
                 pizzaId: parseInt(document.getElementById('pizza-select').value),
                 quantity: parseInt(document.getElementById('quantity').value),
-                customerName: document.getElementById('customer-name').value
+                customerName: document.getElementById('customer-name').value,
+                paymentMethod: document.getElementById('payment-method').value // <-- 加上這行
             };
 
             const response = await fetch('/api/orders', {
@@ -126,7 +135,7 @@
             });
 
             const resultText = await response.text();
-            alert(resultText); // 顯示後端回傳的成功或庫存不足訊息
+            alert(resultText); // 顯示後端回傳的訊息
 
             // 清空姓名欄位並重新整理菜單庫存與訂單列表
             document.getElementById('customer-name').value = '';

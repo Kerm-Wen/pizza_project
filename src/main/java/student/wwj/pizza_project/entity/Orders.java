@@ -1,24 +1,30 @@
 package student.wwj.pizza_project.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "orders")
 public class Orders {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;          // 訂單編號
+    private Long id;
 
-    private Long pizzaId;     // 購買的披薩 ID
-    
-    private String pizzaName; // 披薩名稱（記錄當時買的名字）
+    private Long pizzaId;
+    private String pizzaName;
+    private Integer quantity;
+    private Double totalPrice;
+    private String customerName;
 
-    private Integer quantity; // 購買數量
+    // 新增：付款方式 (CASH: 現場付現, LINE_PAY: LINE Pay, NEWEBPAY: 藍新金流)
+    @Column(name = "payment_method")
+    private String paymentMethod;
 
-    private Double totalPrice; // 總金額（單價 * 數量）
-
-    private String customerName; // 訂購人姓名
+    // 新增：付款狀態 (UNPAID: 未付款, PAID: 已付款, PENDING: 處理中/待付款)
+    @Column(name = "payment_status")
+    private String paymentStatus;
 }
