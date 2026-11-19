@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>會員登入 / 註冊 - 披薩線上點餐系統</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            padding: 20px;
+        }
+        .auth-card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 420px;
+            border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card-header {
+            background: #2d3436;
+            color: #ffffff;
+            text-align: center;
+            padding: 28px 20px;
+        }
+        .card-header h1 {
+            font-size: 24px;
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+        .card-header p {
+            font-size: 13px;
+            color: #b2bec3;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 14px;
+            background: #f8f9fa;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            color: #636e72;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            background: #ffffff;
+            color: #e17055;
+            border-bottom: 3px solid #e17055;
+        }
+        .form-container {
+            padding: 28px 32px;
+        }
+        .input-group {
+            margin-bottom: 18px;
+        }
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #2d3436;
+            margin-bottom: 6px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #dfe6e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #ff7675;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            margin-top: 6px;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(238, 82, 83, 0.35);
+        }
+        .guest-link {
+            display: block;
+            text-align: center;
+            margin-top: 18px;
+            font-size: 13px;
+            color: #636e72;
+            text-decoration: none;
+        }
+        .guest-link:hover {
+            color: #2d3436;
+            text-decoration: underline;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="auth-card">
+    <div class="card-header">
+        <h1>🍕 窯烤披薩專門店</h1>
+        <p>登入會員，享受快速結帳與專屬美味</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">會員登入</button>
+        <button class="tab-btn" id="tab-register" onclick="switchTab('register')">免費註冊</button>
+    </div>
+
+    <!-- 1. 登入表單 -->
+    <div id="login-section" class="form-container">
+        <div class="input-group">
+            <label for="login-account">會員帳號</label>
+            <input type="text" id="login-account" placeholder="請輸入您的帳號">
+        </div>
+        <div class="input-group">
+            <label for="login-password">密碼</label>
+            <input type="password" id="login-password" placeholder="請輸入密碼">
+        </div>
+        <button class="submit-btn" onclick="handleLogin()">立即登入</button>
+        
+        <div style="display: flex; justify-content: space-between; margin-top: 15px; font-size: 13px;">
+            <a href="#" onclick="switchTab('forgot')" style="color: #e17055; text-decoration: none; font-weight: 600;">忘記密碼？</a>
+            <a href="/customer.html" class="guest-link" style="margin-top: 0;">以訪客身分點餐 →</a>
+        </div>
+    </div>
+
+    <!-- 2. 註冊表單 -->
+    <div id="register-section" class="form-container hidden">
+        <div class="input-group">
+            <label for="reg-account">設定帳號</label>
+            <input type="text" id="reg-account" placeholder="例如：pizza_lover">
+        </div>
+        <div class="input-group">
+            <label for="reg-password">設定密碼</label>
+            <input type="password" id="reg-password" placeholder="請輸入密碼">
+        </div>
+        <div class="input-group">
+            <label for="reg-name">您的姓名</label>
+            <input type="text" id="reg-name" placeholder="結帳時將自動帶入此姓名">
+        </div>
+        <div class="input-group">
+            <label for="reg-phone">聯絡電話</label>
+            <input type="text" id="reg-phone" placeholder="例如：0912345678">
+        </div>
+        <button class="submit-btn" onclick="handleRegister()">完成註冊</button>
+        <a href="/customer.html" class="guest-link">先不註冊，直接前往點餐 →</a>
+    </div>
+
+    <!-- 3. 忘記密碼表單 -->
+    <div id="forgot-section" class="form-container hidden">
+        <div class="input-group">
+            <label for="forgot-account">您的會員帳號</label>
+            <input type="text" id="forgot-account" placeholder="請輸入原帳號">
+        </div>
+        <div class="input-group">
+            <label for="forgot-phone">驗證聯絡電話</label>
+            <input type="text" id="forgot-phone" placeholder="請輸入註冊時填寫的電話">
+        </div>
+        <div class="input-group">
+            <label for="forgot-new-password">設定新密碼</label>
+            <input type="password" id="forgot-new-password" placeholder="請輸入您的新密碼">
+        </div>
+        <button class="submit-btn" onclick="handleResetPassword()" style="background: linear-gradient(135deg, #0984e3 0%, #74b9ff 100%);">確認重設密碼</button>
+        <a href="#" onclick="switchTab('login')" class="guest-link">想起密碼了？返回登入</a>
+    </div>
+</div>
+
+<script>
+    function switchTab(mode) {
+        document.getElementById('tab-login').classList.remove('active');
+        document.getElementById('tab-register').classList.remove('active');
+        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('register-section').classList.add('hidden');
+        document.getElementById('forgot-section').classList.add('hidden');
+
+        if (mode === 'login') {
+            document.getElementById('tab-login').classList.add('active');
+            document.getElementById('login-section').classList.remove('hidden');
+        } else if (mode === 'register') {
+            document.getElementById('tab-register').classList.add('active');
+            document.getElementById('register-section').classList.remove('hidden');
+        } else if (mode === 'forgot') {
+            // 忘記密碼時讓上方兩個分頁按鈕都取消選取
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('forgot-section').classList.remove('hidden');
+        }
+    }
+
+    // 登入請求
+    async function handleLogin() {
+        const account = document.getElementById('login-account').value.trim();
+        const password = document.getElementById('login-password').value.trim();
+
+        if (!account || !password) {
+            alert('請輸入帳號與密碼！');
+            return;
+        }
+
+        const response = await fetch('/api/members/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account, password })
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert('歡迎回來，' + result.name + '！即將為您跳轉至點餐頁面...');
+            window.location.href = '/customer.html';
+        } else {
+            alert(result.error || '登入失敗');
+        }
+    }
+
+    // 註冊請求
+    async function handleRegister() {
+        const account = document.getElementById('reg-account').value.trim();
+        const password = document.getElementById('reg-password').value.trim();
+        const name = document.getElementById('reg-name').value.trim();
+        const phone = document.getElementById('reg-phone').value.trim();
+
+        if (!account || !password || !name || !phone) {
+            alert('所有欄位皆為必填喔！');
+            return;
+        }
+
+        const response = await fetch('/api/members/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account, password, name, phone })
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert('註冊成功！請使用剛才的帳號密碼登入。');
+            switchTab('login');
+            document.getElementById('login-account').value = account;
+        } else {
+            alert(result.error || '註冊失敗');
+        }
+    }
+
+    // 重設密碼請求
+    async function handleResetPassword() {
+        const account = document.getElementById('forgot-account').value.trim();
+        const phone = document.getElementById('forgot-phone').value.trim();
+        const newPassword = document.getElementById('forgot-new-password').value.trim();
+
+        if (!account || !phone || !newPassword) {
+            alert('所有欄位皆為必填！');
+            return;
+        }
+
+        const response = await fetch('/api/members/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account, phone, newPassword })
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert(result.message);
+            switchTab('login');
+            document.getElementById('login-account').value = account;
+        } else {
+            alert(result.error || '重設失敗，請確認帳號與電話是否正確');
+        }
+    }
+</script>
+
+</body>
+</html>

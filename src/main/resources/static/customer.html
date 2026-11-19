@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍕 美味饗宴線上點餐系統</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #fdf8f5;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #e65100;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        header h1 { margin: 0; font-size: 28px; }
+        header p { margin: 5px 0 0; font-size: 14px; opacity: 0.9; }
+
+        /* 分類導覽列 */
+        .category-nav {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            background: white;
+            padding: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .cat-btn {
+            background: #f5f5f5;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+            transition: all 0.2s;
+        }
+        .cat-btn.active, .cat-btn:hover {
+            background-color: #ff7043;
+            color: white;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+        }
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        /* 商品卡片網格 */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+        }
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s;
+        }
+        .product-card:hover { transform: translateY(-4px); }
+        .product-img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            background-color: #eee;
+        }
+        .product-body { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; }
+        .product-title { font-size: 18px; font-weight: bold; color: #d84315; margin-bottom: 6px; }
+        .product-desc { font-size: 13px; color: #666; line-height: 1.4; margin-bottom: 12px; flex-grow: 1; }
+        .product-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; padding-top: 10px; }
+        .product-price { font-size: 18px; font-weight: bold; color: #2e7d32; }
+        
+        .add-btn {
+            background-color: #ff7043;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .add-btn:hover { background-color: #f4511e; }
+        .add-btn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* 右側購物車與結帳區 */
+        .checkout-box {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            height: fit-content;
+            position: sticky;
+            top: 70px;
+        }
+        .checkout-box h2 { margin-top: 0; color: #e65100; border-bottom: 2px solid #ffe0b2; padding-bottom: 10px; font-size: 20px; }
+        
+        .cart-list { max-height: 200px; overflow-y: auto; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; font-size: 14px; margin-bottom: 8px; }
+        .cart-item-info { flex-grow: 1; padding-right: 10px; }
+        .cart-item-sub { font-size: 12px; color: #888; }
+        .remove-cart-btn { background: #ff5252; color: white; border: none; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 15px;
+        }
+        .total-preview {
+            background-color: #fff3e0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: right;
+            font-size: 18px;
+            font-weight: bold;
+            color: #d84315;
+        }
+        .submit-btn {
+            width: 100%;
+            background-color: #2e7d32;
+            color: white;
+            border: none;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .submit-btn:hover { background-color: #1b5e20; }
+
+        /* 彈跳視窗 (Modal) 樣式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            width: 350px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .modal-content h3 { margin-top: 0; color: #e65100; }
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btns button { flex: 1; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-confirm { background-color: #ff7043; color: white; }
+        .btn-cancel { background-color: #ccc; color: #333; }
+    </style>
+</head>
+
+<body>
+<!-- 網頁頂部的導覽列區塊 -->
+<div style="background-color: #f8f9fa; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #dee2e6;">
+    <h2 style="margin: 0; font-size: 20px; color: #333;">🍕 披薩點餐系統</h2>
+    
+    <div id="member-area">
+        <span id="welcome-text" style="margin-right: 15px; display: none; font-weight: bold; color: #2e7d32;"></span>
+        <button id="my-orders-btn" onclick="openOrdersModal()" class="btn btn-outline-success btn-sm" style="margin-right: 10px; display: none; padding: 5px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">📦 歷史訂單</button>
+        <button id="login-btn" onclick="openLoginModal()" style="padding: 5px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">登入 / 註冊</button>
+        <button id="logout-btn" onclick="logout()" style="display: none; padding: 5px 12px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">登出</button>
+    </div>
+</div>
+
+<header>
+    <h1>🍕 美味饗宴線上點餐系統</h1>
+    <p>新鮮現做披薩、酥脆炸物與清涼飲料直送到府</p>
+</header>
+
+<!-- 分類導覽列 -->
+<div class="category-nav">
+    <button class="cat-btn active" onclick="filterCategory('ALL', this)">全部品項</button>
+    <button class="cat-btn" onclick="filterCategory('PIZZA', this)">🍕 披薩系列</button>
+    <button class="cat-btn" onclick="filterCategory('FRIED', this)">🍟 酥脆炸物</button>
+    <button class="cat-btn" onclick="filterCategory('DRINK', this)">🥤 清涼飲料</button>
+</div>
+
+<div class="container">
+    <!-- 左側：商品目錄 -->
+    <div>
+        <h2 style="margin-top: 0; color: #444;">📋 精選菜單</h2>
+        <div id="menu-grid" class="menu-grid">
+            <p>菜單載入中...</p>
+        </div>
+    </div>
+
+    <!-- 右側：購物車與結帳單 -->
+    <div class="checkout-box">
+        <h2>🛒 您的購物車</h2>
+        <div id="cart-list" class="cart-list">
+            <p style="color: #888; font-size: 13px; text-align: center; margin: 10px 0;">購物車目前是空的</p>
+        </div>
+
+        <form id="customer-order-form">
+            <div class="form-group">
+                <label for="customer-name">取餐人姓名 / 暱稱：</label>
+                <input type="text" id="customer-name" placeholder="例如：王先生" required>
+            </div>
+
+            <div class="form-group">
+                <label for="delivery-type">取餐方式：</label>
+                <select id="delivery-type" required>
+                    <option value="TAKEOUT">🛍️ 門市外帶 (自取)</option>
+                    <option value="DELIVERY">🛵 專人外送</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="address-group" style="display: none;">
+                <label for="delivery-address">外送地址：</label>
+                <input type="text" id="delivery-address" placeholder="請輸入完整外送地址">
+            </div>
+
+            <div class="form-group">
+                <label for="payment-method">選擇付款方式：</label>
+                <select id="payment-method" required>
+                    <option value="CASH">💵 現場取餐付現 (Cash)</option>
+                    <option value="LINE_PAY">💚 LINE Pay 線上支付</option>
+                    <option value="NEWEBPAY">💳 藍新金流 (信用卡 / ATM)</option>
+                </select>
+            </div>
+
+            <div class="total-preview">
+                總金額：<span id="total-price">$0</span>
+            </div>
+
+            <button type="submit" class="submit-btn">確認送出訂單</button>
+        </form>
+    </div>
+</div>
+
+<!-- 客製化彈跳視窗 (Modal) -->
+<div id="custom-modal" class="modal">
+    <div class="modal-content">
+        <h3 id="modal-product-name">選擇規格</h3>
+        <p id="modal-product-desc" style="font-size: 13px; color: #666;"></p>
+        
+        <div class="form-group" id="crust-selection-group">
+            <label for="modal-crust">選擇餅皮 / 口感：</label>
+            <select id="modal-crust">
+                <option value="薄皮">經典薄皮</option>
+                <option value="厚皮">手打厚皮</option>
+                <option value="起司皮">濃郁起司皮</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="modal-qty">數量：</label>
+            <input type="number" id="modal-qty" min="1" max="10" value="1">
+        </div>
+
+        <div class="modal-btns">
+            <button class="btn-cancel" onclick="closeModal()">取消</button>
+            <button class="btn-confirm" onclick="confirmAddToCart()">加入購物車</button>
+        </div>
+    </div>
+</div>
+
+<!-- 📦 歷史訂單檢視彈跳視窗 (Modal) -->
+<div id="orders-modal" class="modal">
+    <div class="modal-content" style="width: 650px; max-width: 90%; max-height: 80vh; overflow-y: auto;">
+        <h3 style="color: #e65100; border-bottom: 2px solid #ffe0b2; padding-bottom: 10px;">📦 我的歷史訂單記錄</h3>
+        <div id="my-orders-container" style="margin-top: 15px;">
+            <p style="text-align: center; color: #666;">資料載入中...</p>
+        </div>
+        <div style="text-align: right; margin-top: 20px;">
+            <button onclick="closeOrdersModal()" class="btn-cancel" style="padding: 8px 20px; background: #ccc; border: none; border-radius: 6px; cursor: pointer;">關閉視窗</button>
+        </div>
+    </div>
+</div>
+
+<!-- 簡易登入/註冊 Modal -->
+<div id="authModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 101;">
+    <div style="background: white; padding: 30px; border-radius: 8px; width: 350px; position: relative;">
+        <h3 id="modal-title">會員登入</h3>
+        
+        <div id="login-form">
+            <div style="margin-bottom: 15px;">
+                <label>帳號：</label><br>
+                <input type="text" id="login-account" style="width: 100%; padding: 8px; box-sizing: border-box;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>密碼：</label><br>
+                <input type="password" id="login-password" style="width: 100%; padding: 8px; box-sizing: border-box;">
+            </div>
+            <button onclick="submitLogin()" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">登入</button>
+            <p style="margin-top: 15px; text-align: center; font-size: 14px;">
+                還沒有帳號？ <a href="#" onclick="switchForm('register')">點此註冊</a>
+            </p>
+        </div>
+
+        <div id="register-form" style="display: none;">
+            <div style="margin-bottom: 10px;">
+                <label>帳號：</label><br>
+                <input type="text" id="reg-account" style="width: 100%; padding: 6px; box-sizing: border-box;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>密碼：</label><br>
+                <input type="password" id="reg-password" style="width: 100%; padding: 6px; box-sizing: border-box;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>姓名：</label><br>
+                <input type="text" id="reg-name" style="width: 100%; padding: 6px; box-sizing: border-box;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>電話：</label><br>
+                <input type="text" id="reg-phone" style="width: 100%; padding: 6px; box-sizing: border-box;">
+            </div>
+            <button onclick="submitRegister()" style="width: 100%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">註冊</button>
+            <p style="margin-top: 15px; text-align: center; font-size: 14px;">
+                已經有帳號了？ <a href="#" onclick="switchForm('login')">返回登入</a>
+            </p>
+        </div>
+
+        <button onclick="closeLoginModal()" style="position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 18px; cursor: pointer;">✕</button>
+    </div>
+</div>
+
+<script>
+    let productList = [];
+    let cart = [];
+    let currentSelectedProduct = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        checkCurrentMember();
+        loadProducts();
+    });
+
+    // 1. 載入商品菜單
+    async function loadProducts() {
+        try {
+            const response = await fetch('/api/products');
+            productList = await response.json();
+            renderMenu(productList);
+        } catch (error) {
+            console.error('載入菜單失敗:', error);
+            document.getElementById('menu-grid').innerHTML = '<p style="color:red;">無法載入菜單，請檢查後端連線。</p>';
+        }
+    }
+
+    // 2. 渲染菜單畫面
+    function renderMenu(items) {
+        const menuGrid = document.getElementById('menu-grid');
+        menuGrid.innerHTML = '';
+
+        if (items.length === 0) {
+            menuGrid.innerHTML = '<p>目前沒有上架商品。</p>';
+            return;
+        }
+
+        items.forEach(product => {
+            const isSoldOut = product.stock <= 0;
+            const card = document.createElement('div');
+            card.className = 'product-card';
+
+            const img = document.createElement('img');
+            img.className = 'product-img';
+            img.src = product.imageUrl || 'https://images.unsplash.com/photo-1513104890138-7c749659a591';
+            img.alt = product.name;
+            card.appendChild(img);
+
+            const body = document.createElement('div');
+            body.className = 'product-body';
+
+            const title = document.createElement('div');
+            title.className = 'product-title';
+            title.textContent = product.name;
+            body.appendChild(title);
+
+            const desc = document.createElement('div');
+            desc.className = 'product-desc';
+            desc.textContent = product.description || '美味現做餐點';
+            body.appendChild(desc);
+
+            const footer = document.createElement('div');
+            footer.className = 'product-footer';
+
+            const price = document.createElement('span');
+            price.className = 'product-price';
+            price.textContent = 'NT$ ' + product.price;
+            footer.appendChild(price);
+
+            const btn = document.createElement('button');
+            btn.className = 'add-btn';
+            btn.disabled = isSoldOut;
+            btn.textContent = isSoldOut ? '已售完' : '選擇口味';
+            btn.onclick = function() { openCustomModal(product.id); };
+            footer.appendChild(btn);
+
+            body.appendChild(footer);
+            card.appendChild(body);
+            menuGrid.appendChild(card);
+        });
+    }
+
+    // 3. 分類篩選
+    function filterCategory(category, btnElement) {
+        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+        btnElement.classList.add('active');
+
+        if (category === 'ALL') {
+            renderMenu(productList);
+        } else {
+            const filtered = productList.filter(p => p.category === category);
+            renderMenu(filtered);
+        }
+    }
+
+    // 4. 開啟客製化彈跳視窗
+    function openCustomModal(productId) {
+        currentSelectedProduct = productList.find(p => p.id === productId);
+        if (!currentSelectedProduct) return;
+
+        document.getElementById('modal-product-name').textContent = currentSelectedProduct.name;
+        document.getElementById('modal-product-desc').textContent = currentSelectedProduct.description || '';
+        document.getElementById('modal-qty').value = 1;
+
+        const crustGroup = document.getElementById('crust-selection-group');
+        const category = (currentSelectedProduct.category || '').toUpperCase();
+        crustGroup.style.display = (category === 'PIZZA') ? 'block' : 'none';
+
+        document.getElementById('custom-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('custom-modal').style.display = 'none';
+        currentSelectedProduct = null;
+    }
+
+    // 5. 加入購物車
+    function confirmAddToCart() {
+        if (!currentSelectedProduct) return;
+
+        const qty = parseInt(document.getElementById('modal-qty').value) || 1;
+        const crustSelect = document.getElementById('modal-crust').value;
+        const crust = currentSelectedProduct.category === 'PIZZA' ? crustSelect : '';
+        const customText = crust ? ' (' + crust + ')' : '';
+
+        const existingItem = cart.find(item => item.productId === currentSelectedProduct.id && item.customization === customText);
+        
+        if (existingItem) {
+            existingItem.quantity += qty;
+        } else {
+            cart.push({
+                productId: currentSelectedProduct.id,
+                name: currentSelectedProduct.name + customText,
+                price: currentSelectedProduct.price,
+                quantity: qty,
+                customization: crust
+            });
+        }
+
+        closeModal();
+        renderCart();
+    }
+
+    // 6. 渲染購物車清單
+    function renderCart() {
+        const cartList = document.getElementById('cart-list');
+        cartList.innerHTML = '';
+
+        if (cart.length === 0) {
+            cartList.innerHTML = '<p style="color: #888; font-size: 13px; text-align: center; margin: 10px 0;">購物車目前是空的</p>';
+            document.getElementById('total-price').textContent = 'NT$ 0';
+            return;
+        }
+
+        let total = 0;
+        cart.forEach((item, index) => {
+            const itemTotal = item.price * item.quantity;
+            total += itemTotal;
+
+            const div = document.createElement('div');
+            div.className = 'cart-item';
+
+            div.innerHTML = `
+                <div class="cart-item-info">
+                    <strong>${item.name} x ${item.quantity}</strong>
+                    <div class="cart-item-sub">NT$ ${item.price} / 份</div>
+                </div>
+                <span>NT$ ${itemTotal}</span>
+                <button class="remove-cart-btn" onclick="removeFromCart(${index})">刪除</button>
+            `;
+            cartList.appendChild(div);
+        });
+
+        document.getElementById('total-price').textContent = 'NT$ ' + total;
+    }
+
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        renderCart();
+    }
+
+    // 7. 外送地址連動
+    document.getElementById('delivery-type').addEventListener('change', (e) => {
+        const addressGroup = document.getElementById('address-group');
+        const addressInput = document.getElementById('delivery-address');
+        if (e.target.value === 'DELIVERY') {
+            addressGroup.style.display = 'block';
+            addressInput.required = true;
+        } else {
+            addressGroup.style.display = 'none';
+            addressInput.required = false;
+            addressInput.value = '';
+        }
+    });
+
+    // 8. 批次送出購物車訂單 (Master-Detail 架構)
+    document.getElementById('customer-order-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (cart.length === 0) {
+            alert('購物車是空的，請先加入商品再送出訂單！');
+            return;
+        }
+
+        const customerName = document.getElementById('customer-name').value;
+        const deliveryType = document.getElementById('delivery-type').value;
+        const deliveryAddress = document.getElementById('delivery-address').value;
+        const paymentMethod = document.getElementById('payment-method').value;
+
+        const itemsDto = cart.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            customization: item.customization || ''
+        }));
+
+        const orderRequestData = {
+            customerName: customerName,
+            deliveryType: deliveryType,
+            deliveryAddress: deliveryAddress,
+            paymentMethod: paymentMethod,
+            items: itemsDto
+        };
+
+        try {
+            const response = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderRequestData)
+            });
+
+            const resultText = await response.text();
+
+            if (response.ok) {
+                alert('🎉 ' + resultText);
+                cart = [];
+                renderCart();
+                document.getElementById('delivery-type').value = 'TAKEOUT';
+                document.getElementById('address-group').style.display = 'none';
+                document.getElementById('delivery-address').value = '';
+                loadProducts();
+            } else {
+                alert('❌ 下單失敗：' + resultText);
+            }
+        } catch (error) {
+            console.error('送出訂單發生錯誤:', error);
+            alert('❌ 發生網路錯誤，請稍後再試！');
+        }
+    });
+
+    // 會員功能 Modal 控制
+    function openLoginModal() { document.getElementById('authModal').style.display = 'flex'; }
+    function closeLoginModal() { document.getElementById('authModal').style.display = 'none'; }
+    function switchForm(type) {
+        if (type === 'register') {
+            document.getElementById('modal-title').innerText = '會員註冊';
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'block';
+        } else {
+            document.getElementById('modal-title').innerText = '會員登入';
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('login-form').style.display = 'block';
+        }
+    }
+
+    async function submitLogin() {
+        const account = document.getElementById('login-account').value;
+        const password = document.getElementById('login-password').value;
+
+        const response = await fetch('/api/members/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account, password })
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert(result.message || '登入成功！');
+            closeLoginModal();
+            checkCurrentMember();
+        } else {
+            alert(result.error || '登入失敗');
+        }
+    }
+
+    async function submitRegister() {
+        const account = document.getElementById('reg-account').value;
+        const password = document.getElementById('reg-password').value;
+        const name = document.getElementById('reg-name').value;
+        const phone = document.getElementById('reg-phone').value;
+
+        const response = await fetch('/api/members/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account, password, name, phone })
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert(result.message || '註冊成功！');
+            switchForm('login');
+        } else {
+            alert(result.error || '註冊失敗');
+        }
+    }
+
+    async function checkCurrentMember() {
+        try {
+            const response = await fetch('/api/members/current');
+            if (response.ok) {
+                const member = await response.json();
+                document.getElementById('welcome-text').innerText = `歡迎回來，${member.name}`;
+                document.getElementById('welcome-text').style.display = 'inline';
+                document.getElementById('login-btn').style.display = 'none';
+                document.getElementById('logout-btn').style.display = 'inline';
+                
+                const myOrdersBtn = document.getElementById('my-orders-btn');
+                if (myOrdersBtn) myOrdersBtn.style.display = 'inline-block';
+
+                const nameInput = document.getElementById('customer-name');
+                if (nameInput) nameInput.value = member.name;
+            }
+        } catch (e) {
+            console.log('尚未登入');
+        }
+    }
+
+    async function logout() {
+    try {
+        // 若後端有登出 API 可一併呼叫（沒有這支或回傳非 200 也不影響跳轉）
+        await fetch('/api/members/logout', { method: 'POST' });
+    } catch (error) {
+        console.warn('呼叫登出 API 發生例外，仍執行前端跳轉:', error);
+    } finally {
+        // 清除前端可能暫存的登入資訊（若有使用可保留，沒有可移除）
+        localStorage.removeItem('loginMember');
+        sessionStorage.removeItem('loginMember');
+
+        // 跳轉至 login.html
+        window.location.href = 'login.html';
+    }
+}
+
+    // 歷史訂單 Modal
+    function openOrdersModal() {
+        document.getElementById('orders-modal').style.display = 'flex';
+        fetchMyOrders();
+    }
+    function closeOrdersModal() {
+        document.getElementById('orders-modal').style.display = 'none';
+    }
+
+    async function fetchMyOrders() {
+        const container = document.getElementById('my-orders-container');
+        container.innerHTML = '<p style="text-align: center; color: #666;">資料載入中...</p>';
+
+        try {
+            const response = await fetch('/api/orders/my-orders');
+            if (response.status === 401) {
+                alert('請先登入會員才能查看歷史訂單！');
+                closeOrdersModal();
+                openLoginModal();
+                return;
+            }
+            if (!response.ok) throw new Error('無法取得訂單資料');
+
+            const orders = await response.json();
+
+            if (orders.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #888; padding: 20px;">目前沒有任何歷史訂單記錄。</p>';
+                return;
+            }
+
+            orders.reverse();
+            let html = `<div style="display: flex; flex-direction: column; gap: 12px;">`;
+
+            orders.forEach(order => {
+                const statusColor = order.paymentStatus === 'UNPAID' ? '#c62828' : '#2e7d32';
+                const statusBg = order.paymentStatus === 'UNPAID' ? '#ffebee' : '#e8f5e9';
+                const deliveryText = order.deliveryType === 'DELIVERY' ? '🛵 專人外送' : '🛍️ 門市自取';
+
+                const detailList = order.items || order.orderItems || [];
+                let itemsHtml = '';
+
+                if (detailList.length > 0) {
+                    itemsHtml = `
+                        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #ddd;">
+                            <div style="font-size: 13px; font-weight: bold; color: #555; margin-bottom: 6px;">🍕 購買明細：</div>
+                            <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #444; line-height: 1.6;">
+                                ${detailList.map(item => `
+                                    <li>
+                                        <strong>${item.productName}</strong> × ${item.quantity}
+                                        ${item.customization ? `<span style="color: #e65100;">（${item.customization}）</span>` : ''}
+                                        <span style="color: #777;">— NT$ ${item.price} / 份</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: #fafafa; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px;">
+                            <span style="font-weight: bold; color: #e65100;">訂單編號：#${order.id}</span>
+                            <span style="padding: 3px 8px; border-radius: 4px; font-size: 12px; background-color: ${statusBg}; color: ${statusColor}; font-weight: bold;">
+                                ${order.paymentStatus}
+                            </span>
+                        </div>
+                        <div style="font-size: 14px; color: #444; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div><strong>總金額：</strong> <span style="color: #d84315; font-weight: bold;">NT$ ${order.totalAmount || 0}</span></div>
+                            <div><strong>取餐方式：</strong> ${deliveryText}</div>
+                            <div><strong>收件人：</strong> ${order.customerName}</div>
+                            <div><strong>付款方式：</strong> ${order.paymentMethod}</div>
+                        </div>
+                        ${order.deliveryAddress && order.deliveryAddress !== '門市自取' ? `<div style="font-size: 13px; color: #666; margin-top: 8px;"><strong>外送地址：</strong> ${order.deliveryAddress}</div>` : ''}
+                        ${itemsHtml}
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            container.innerHTML = html;
+        } catch (error) {
+            console.error('查詢歷史訂單失敗:', error);
+            container.innerHTML = '<p style="text-align: center; color: red;">載入歷史訂單失敗，請稍後再試！</p>';
+        }
+    }
+</script>
+
+</body>
+</html>

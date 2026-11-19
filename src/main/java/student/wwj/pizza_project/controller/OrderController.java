@@ -1,12 +1,16 @@
 package student.wwj.pizza_project.controller;
 
 import student.wwj.pizza_project.dto.OrderRequest;
+import student.wwj.pizza_project.entity.Member; // 記得引入 Member
 import student.wwj.pizza_project.entity.Orders;
 import student.wwj.pizza_project.service.OrderService;
+import jakarta.servlet.http.HttpSession; // 記得引入 HttpSession
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity; // 記得引入 ResponseEntity
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map; // 記得引入 Map
 
 @RestController
 @RequestMapping("/api/orders")
@@ -37,5 +41,19 @@ public class OrderController {
     @DeleteMapping("/{id}")
     public String cancelOrder(@PathVariable Long id) {
         return orderService.cancelOrder(id);
+    }
+
+    // --- 5. 新增：查詢目前登入會員的歷史訂單 (GET /api/orders/my-orders) ---
+    @GetMapping("/my-orders")
+    public ResponseEntity<?> getMyOrders(HttpSession session) {
+        // 從 Session 中檢查會員是否已登入（請確認登入時存入 Session 的 key 是否為 "loginMember"）
+        Member loginMember = (Member) session.getAttribute("loginMember");
+        if (loginMember == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "請先登入會員才能查看歷史訂單！"));
+        }
+
+        // 呼叫 Service 取得該會員的訂單
+        List<Orders> myOrders = orderService.getOrdersByAccount(loginMember.getAccount());
+        return ResponseEntity.ok(myOrders);
     }
 }

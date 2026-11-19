@@ -1,11 +1,10 @@
 package student.wwj.pizza_project.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
-@Getter
-@Setter
 @Entity
 @Table(name = "orders")
 public class Orders {
@@ -14,17 +13,45 @@ public class Orders {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long pizzaId;
-    private String pizzaName;
-    private Integer quantity;
-    private Double totalPrice;
+    @Column(name = "member_account")
+    private String memberAccount;
+
     private String customerName;
-
-    // 新增：付款方式 (CASH: 現場付現, LINE_PAY: LINE Pay, NEWEBPAY: 藍新金流)
-    @Column(name = "payment_method")
+    private String deliveryType;
+    private String deliveryAddress;
     private String paymentMethod;
-
-    // 新增：付款狀態 (UNPAID: 未付款, PAID: 已付款, PENDING: 處理中/待付款)
-    @Column(name = "payment_status")
     private String paymentStatus;
+
+    private BigDecimal totalAmount; // 訂單總金額
+
+    @Transient
+    private List<OrderItem> items = new ArrayList<>(); // 查詢時帶出的訂單明細
+
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getMemberAccount() { return memberAccount; }
+    public void setMemberAccount(String memberAccount) { this.memberAccount = memberAccount; }
+
+    public String getCustomerName() { return customerName; }
+    public void setCustomerName(String customerName) { this.customerName = customerName; }
+
+    public String getDeliveryType() { return deliveryType; }
+    public void setDeliveryType(String deliveryType) { this.deliveryType = deliveryType; }
+
+    public String getDeliveryAddress() { return deliveryAddress; }
+    public void setDeliveryAddress(String deliveryAddress) { this.deliveryAddress = deliveryAddress; }
+
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+
+    public List<OrderItem> getItems() { return items; }
+    public void setItems(List<OrderItem> items) { this.items = items; }
 }
