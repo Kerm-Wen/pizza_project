@@ -1,16 +1,16 @@
 package student.wwj.pizza_project.controller;
 
+import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import student.wwj.pizza_project.dto.OrderRequest;
-import student.wwj.pizza_project.entity.Member; // 記得引入 Member
+import student.wwj.pizza_project.entity.Member;
 import student.wwj.pizza_project.entity.Orders;
 import student.wwj.pizza_project.service.OrderService;
-import jakarta.servlet.http.HttpSession; // 記得引入 HttpSession
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity; // 記得引入 ResponseEntity
-import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map; // 記得引入 Map
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -31,10 +31,15 @@ public class OrderController {
         return orderService.getOrderById(id);
     }
 
-    // 3. 建立訂單 (POST)
+    // 3. 建立訂單 (POST /api/orders)
     @PostMapping
-    public String createOrder(@RequestBody OrderRequest request) {
-        return orderService.createOrder(request);
+    public ResponseEntity<?> createOrder(@RequestBody OrderRequest request) {
+        try {
+            Orders createdOrder = orderService.createOrder(request);
+            return ResponseEntity.ok(createdOrder);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 
     // 4. 取消訂單 (DELETE /api/orders/{id})
@@ -43,17 +48,41 @@ public class OrderController {
         return orderService.cancelOrder(id);
     }
 
-    // --- 5. 新增：查詢目前登入會員的歷史訂單 (GET /api/orders/my-orders) ---
+    // 5. 查詢目前登入會員的歷史訂單 (GET /api/orders/my-orders)
     @GetMapping("/my-orders")
     public ResponseEntity<?> getMyOrders(HttpSession session) {
-        // 從 Session 中檢查會員是否已登入（請確認登入時存入 Session 的 key 是否為 "loginMember"）
         Member loginMember = (Member) session.getAttribute("loginMember");
         if (loginMember == null) {
             return ResponseEntity.status(401).body(Map.of("message", "請先登入會員才能查看歷史訂單！"));
         }
 
-        // 呼叫 Service 取得該會員的訂單
         List<Orders> myOrders = orderService.getOrdersByAccount(loginMember.getAccount());
         return ResponseEntity.ok(myOrders);
+    }
+
+    // 6. 付款完成更新狀態 (PATCH /api/orders/{id}/pay)
+    @PatchMapping("/{id}/pay")
+    public ResponseEntity<?> markOrderAsPaid(@PathVariable Long id) {
+        try {
+            Orders updated = orderService.markAsPaid(id);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // 7. 更新訂單進度 (PATCH /api/orders/{id}/status)
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<?> updateOrderStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        try {
+            String orderStatus = body.get("orderStatus");
+            if (orderStatus == null || orderStatus.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "缺少 orderStatus 參數"));
+            }
+            Orders updated = orderService.updateOrderStatus(id, orderStatus);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 }

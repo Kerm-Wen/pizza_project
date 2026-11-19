@@ -24,6 +24,8 @@ public class Orders {
 
     private BigDecimal totalAmount; // 訂單總金額
 
+    private String orderStatus = "SUBMITTED"; // 訂單進度：SUBMITTED, ACCEPTED, PREPARING, READY, DELIVERING, COMPLETED
+
     @Transient
     private List<OrderItem> items = new ArrayList<>(); // 查詢時帶出的訂單明細
 
@@ -54,4 +56,8 @@ public class Orders {
 
     public List<OrderItem> getItems() { return items; }
     public void setItems(List<OrderItem> items) { this.items = items; }
+
+    public String getOrderStatus() { return orderStatus; }
+    public void setOrderStatus(String orderStatus) { this.orderStatus = orderStatus; }
+
 }

@@ -359,6 +359,7 @@
     async function loadProducts() {
         try {
             const response = await fetch('/api/products');
+            if (!response.ok) throw new Error('無法取得菜單資料');
             productList = await response.json();
             renderMenu(productList);
         } catch (error) {
@@ -570,22 +571,32 @@
                 body: JSON.stringify(orderRequestData)
             });
 
-            const resultText = await response.text();
+            const data = await response.json();
 
-            if (response.ok) {
-                alert('🎉 ' + resultText);
-                cart = [];
-                renderCart();
-                document.getElementById('delivery-type').value = 'TAKEOUT';
-                document.getElementById('address-group').style.display = 'none';
-                document.getElementById('delivery-address').value = '';
-                loadProducts();
+            if (!response.ok) {
+                alert('❌ 下單失敗：' + (data.message || '請稍後再試'));
+                return;
+            }
+
+            // 清空購物車與重設表單
+            cart = [];
+            renderCart();
+            document.getElementById('delivery-type').value = 'TAKEOUT';
+            document.getElementById('address-group').style.display = 'none';
+            document.getElementById('delivery-address').value = '';
+            loadProducts();
+
+            // 依付款方式決定是否跳轉金流頁
+            if (data.paymentMethod === 'LINE_PAY') {
+                window.location.href = `payment.html?orderId=${data.id}&method=LINE_PAY&amount=${data.totalAmount}`;
+            } else if (data.paymentMethod === 'NEWEBPAY') {
+                window.location.href = `payment.html?orderId=${data.id}&method=NEWEBPAY&amount=${data.totalAmount}`;
             } else {
-                alert('❌ 下單失敗：' + resultText);
+                alert(`🎉 下單成功（現場付現）！訂單編號 #${data.id}，總金額 NT$ ${data.totalAmount}`);
             }
         } catch (error) {
             console.error('送出訂單發生錯誤:', error);
-            alert('❌ 發生網路錯誤，請稍後再試！');
+            alert('❌ 送出失敗：' + (error.message || '請稍後再試！'));
         }
     });
 
@@ -667,20 +678,16 @@
     }
 
     async function logout() {
-    try {
-        // 若後端有登出 API 可一併呼叫（沒有這支或回傳非 200 也不影響跳轉）
-        await fetch('/api/members/logout', { method: 'POST' });
-    } catch (error) {
-        console.warn('呼叫登出 API 發生例外，仍執行前端跳轉:', error);
-    } finally {
-        // 清除前端可能暫存的登入資訊（若有使用可保留，沒有可移除）
-        localStorage.removeItem('loginMember');
-        sessionStorage.removeItem('loginMember');
-
-        // 跳轉至 login.html
-        window.location.href = 'login.html';
+        try {
+            await fetch('/api/members/logout', { method: 'POST' });
+        } catch (error) {
+            console.warn('呼叫登出 API 發生例外，仍執行前端跳轉:', error);
+        } finally {
+            localStorage.removeItem('loginMember');
+            sessionStorage.removeItem('loginMember');
+            window.location.href = 'login.html';
+        }
     }
-}
 
     // 歷史訂單 Modal
     function openOrdersModal() {
@@ -689,6 +696,85 @@
     }
     function closeOrdersModal() {
         document.getElementById('orders-modal').style.display = 'none';
+    }
+
+    // 根據訂單狀態、付款狀態與取餐方式，產生步驟進度條 HTML
+    function renderOrderProgressBar(order) {
+        const isDelivery = order.deliveryType === 'DELIVERY';
+        const isPaid = order.paymentStatus === 'PAID';
+        const status = order.orderStatus || 'SUBMITTED';
+
+        // 自取顯示 5 步（免顯示「配送中」）；外送顯示 6 步
+        const steps = isDelivery
+            ? [
+                { key: 'SUBMITTED', label: '送出訂單' },
+                { key: 'ACCEPTED', label: '接到訂單' },
+                { key: 'PAID', label: '接到付款' },
+                { key: 'PREPARING', label: '製作中' },
+                { key: 'READY', label: '完成' },
+                { key: 'DELIVERING', label: '配送中' }
+              ]
+            : [
+                { key: 'SUBMITTED', label: '送出訂單' },
+                { key: 'ACCEPTED', label: '接到訂單' },
+                { key: 'PAID', label: '接到付款' },
+                { key: 'PREPARING', label: '製作中' },
+                { key: 'READY', label: '完成(可自取)' }
+              ];
+
+        // 計算目前進行到第幾步
+        let currentIndex = 0;
+        if (status === 'DELIVERING' || status === 'COMPLETED') {
+            currentIndex = steps.length - 1;
+        } else if (status === 'READY') {
+            currentIndex = steps.findIndex(s => s.key === 'READY');
+        } else if (status === 'PREPARING') {
+            currentIndex = steps.findIndex(s => s.key === 'PREPARING');
+        } else if (isPaid) {
+            currentIndex = steps.findIndex(s => s.key === 'PAID');
+        } else if (status === 'ACCEPTED') {
+            currentIndex = steps.findIndex(s => s.key === 'ACCEPTED');
+        } else {
+            currentIndex = 0;
+        }
+
+        const progressPercent = Math.round((currentIndex / (steps.length - 1)) * 100);
+
+        const stepsHtml = steps.map((step, idx) => {
+            const isDone = idx <= currentIndex;
+            const isCurrent = idx === currentIndex;
+            const circleBg = isDone ? '#e65100' : '#e0e0e0';
+            const textColor = isDone ? '#e65100' : '#999';
+            const ringStyle = isCurrent ? 'box-shadow: 0 0 0 3px rgba(230, 81, 0, 0.2);' : '';
+
+            return `
+                <div style="flex: 1; text-align: center; position: relative; z-index: 2;">
+                    <div style="width: 22px; height: 22px; margin: 0 auto 5px; border-radius: 50%; background: ${circleBg}; color: #fff; font-size: 11px; font-weight: bold; line-height: 22px; ${ringStyle}">
+                        ${idx < currentIndex ? '✓' : idx + 1}
+                    </div>
+                    <div style="font-size: 11px; color: ${textColor}; font-weight: ${isCurrent ? 'bold' : 'normal'}; line-height: 1.2;">
+                        ${step.label}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const deliveryInfoHtml = isDelivery
+            ? `<div style="margin-top: 8px; padding: 6px 10px; background: #fff3e0; border-radius: 6px; font-size: 12px; color: #bf360c;">
+                   🛵 <strong>配送地址：</strong>${order.deliveryAddress || '未填寫地址'}
+               </div>`
+            : '';
+
+        return `
+            <div style="margin: 12px 0; padding: 12px 8px; background: #fff; border: 1px solid #f0e6dc; border-radius: 8px;">
+                <div style="position: relative; display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="position: absolute; top: 10px; left: 8%; right: 8%; height: 3px; background: #e0e0e0; z-index: 1;"></div>
+                    <div style="position: absolute; top: 10px; left: 8%; width: ${progressPercent * 0.84}%; height: 3px; background: #e65100; z-index: 1; transition: width 0.3s;"></div>
+                    ${stepsHtml}
+                </div>
+                ${deliveryInfoHtml}
+            </div>
+        `;
     }
 
     async function fetchMyOrders() {
@@ -725,7 +811,7 @@
 
                 if (detailList.length > 0) {
                     itemsHtml = `
-                        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #ddd;">
+                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ddd;">
                             <div style="font-size: 13px; font-weight: bold; color: #555; margin-bottom: 6px;">🍕 購買明細：</div>
                             <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #444; line-height: 1.6;">
                                 ${detailList.map(item => `
@@ -739,6 +825,8 @@
                         </div>
                     `;
                 }
+
+                const progressBarHtml = renderOrderProgressBar(order);
 
                 html += `
                     <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: #fafafa; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
@@ -754,7 +842,7 @@
                             <div><strong>收件人：</strong> ${order.customerName}</div>
                             <div><strong>付款方式：</strong> ${order.paymentMethod}</div>
                         </div>
-                        ${order.deliveryAddress && order.deliveryAddress !== '門市自取' ? `<div style="font-size: 13px; color: #666; margin-top: 8px;"><strong>外送地址：</strong> ${order.deliveryAddress}</div>` : ''}
+                        ${progressBarHtml}
                         ${itemsHtml}
                     </div>
                 `;

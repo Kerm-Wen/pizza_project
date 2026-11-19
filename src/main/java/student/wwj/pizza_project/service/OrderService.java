@@ -1,17 +1,17 @@
 package student.wwj.pizza_project.service;
 
-import student.wwj.pizza_project.dto.OrderRequest;
-import student.wwj.pizza_project.entity.Member;
-import student.wwj.pizza_project.entity.Orders;
-import student.wwj.pizza_project.entity.OrderItem;
-import student.wwj.pizza_project.entity.Product;
-import student.wwj.pizza_project.repository.OrderRepository;
-import student.wwj.pizza_project.repository.OrderItemRepository;
-import student.wwj.pizza_project.repository.ProductRepository;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import student.wwj.pizza_project.dto.OrderRequest;
+import student.wwj.pizza_project.entity.Member;
+import student.wwj.pizza_project.entity.OrderItem;
+import student.wwj.pizza_project.entity.Orders;
+import student.wwj.pizza_project.entity.Product;
+import student.wwj.pizza_project.repository.OrderItemRepository;
+import student.wwj.pizza_project.repository.OrderRepository;
+import student.wwj.pizza_project.repository.ProductRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -43,26 +43,24 @@ public class OrderService {
 
     // 3. 批次建立訂單與扣庫存（主檔 + 明細檔架構）
     @Transactional
-    public String createOrder(OrderRequest request) {
+    public Orders createOrder(OrderRequest request) {
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            return "下單失敗：購物車是空的！";
+            throw new IllegalArgumentException("購物車是空的！");
         }
 
         // 外帶/外送驗證防呆
         String dType = request.getDeliveryType() != null ? request.getDeliveryType() : "TAKEOUT";
         if ("DELIVERY".equals(dType) && (request.getDeliveryAddress() == null || request.getDeliveryAddress().trim().isEmpty())) {
-            return "下單失敗：選擇外送時，必須填寫外送地址！";
+            throw new IllegalArgumentException("選擇外送時，必須填寫外送地址！");
         }
 
         // 計算總金額並預先檢查庫存
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (OrderRequest.CartItemDto itemDto : request.getItems()) {
-            Product product = productRepository.findById(itemDto.getProductId()).orElse(null);
-            if (product == null) {
-                return "下單失敗：找不到商品編號 " + itemDto.getProductId();
-            }
+            Product product = productRepository.findById(itemDto.getProductId())
+                    .orElseThrow(() -> new IllegalArgumentException("找不到商品編號 " + itemDto.getProductId()));
             if (product.getStock() < itemDto.getQuantity()) {
-                return "下單失敗：" + product.getName() + " 庫存不足！目前剩餘：" + product.getStock();
+                throw new IllegalArgumentException(product.getName() + " 庫存不足！目前剩餘：" + product.getStock());
             }
             BigDecimal itemTotal = product.getPrice().multiply(new BigDecimal(itemDto.getQuantity()));
             totalAmount = totalAmount.add(itemTotal);
@@ -75,6 +73,7 @@ public class OrderService {
         order.setDeliveryAddress("DELIVERY".equals(dType) ? request.getDeliveryAddress() : "門市自取");
         order.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH");
         order.setTotalAmount(totalAmount);
+        order.setOrderStatus("SUBMITTED");
 
         // 綁定會員帳號
         Member loginMember = (Member) session.getAttribute("loginMember");
@@ -86,30 +85,24 @@ public class OrderService {
 
         // 設定付款狀態
         String method = order.getPaymentMethod();
-        String responseMessage = "";
         switch (method) {
             case "CASH":
                 order.setPaymentStatus("UNPAID");
-                responseMessage = "下單成功（現場付現）！總金額 NT$ " + totalAmount;
                 break;
             case "LINE_PAY":
-                order.setPaymentStatus("PENDING");
-                responseMessage = "訂單已建立！正在為您導向至 LINE Pay...";
-                break;
             case "NEWEBPAY":
                 order.setPaymentStatus("PENDING");
-                responseMessage = "訂單已建立！正在為您導向至 藍新金流...";
                 break;
             default:
                 order.setPaymentStatus("UNPAID");
-                responseMessage = "下單成功！";
+                break;
         }
 
         orderRepository.save(order); // 儲存主訂單以取得生成的 ID
 
         // 2. 迴圈扣庫存並建立訂單明細 (OrderItem)
         for (OrderRequest.CartItemDto itemDto : request.getItems()) {
-            Product product = productRepository.findById(itemDto.getProductId()).orElse(null);
+            Product product = productRepository.findById(itemDto.getProductId()).orElseThrow();
 
             // 扣庫存
             product.setStock(product.getStock() - itemDto.getQuantity());
@@ -127,7 +120,7 @@ public class OrderService {
             orderItemRepository.save(item);
         }
 
-        return responseMessage;
+        return order;
     }
 
     // 4. 根據會員帳號查詢歷史主訂單（並帶出每筆訂單的購買明細）
@@ -162,5 +155,23 @@ public class OrderService {
         orderRepository.delete(order);
 
         return "訂單 #" + orderId + " 已成功取消，庫存已回復！";
+    }
+
+    // 6. 付款完成更新狀態
+    @Transactional
+    public Orders markAsPaid(Long orderId) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("找不到訂單 #" + orderId));
+        order.setPaymentStatus("PAID");
+        return orderRepository.save(order);
+    }
+
+    // 7. 更新訂單製作/配送進度
+    @Transactional
+    public Orders updateOrderStatus(Long orderId, String orderStatus) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("找不到訂單 #" + orderId));
+        order.setOrderStatus(orderStatus);
+        return orderRepository.save(order);
     }
 }
