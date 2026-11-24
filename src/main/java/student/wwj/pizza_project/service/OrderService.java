@@ -31,9 +31,14 @@ public class OrderService {
     @Autowired
     private HttpSession session;
 
-    // 1. 查詢所有訂單（主訂單）
+    // 1. 查詢所有訂單（並帶出每筆訂單的購買明細）
     public List<Orders> getAllOrders() {
-        return orderRepository.findAll();
+        List<Orders> orders = orderRepository.findAll();
+        for (Orders order : orders) {
+            List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+            order.setItems(items);
+        }
+        return orders;
     }
 
     // 2. 根據 ID 查詢單一主訂單
@@ -133,28 +138,43 @@ public class OrderService {
         return orders;
     }
 
-    // 5. 取消訂單並回復庫存（主檔-明細檔架構）
+    // 5. 取消訂單並回復庫存（保留訂單與明細紀錄，狀態改為 CANCELLED）
     @Transactional
-    public String cancelOrder(Long orderId) {
-        Orders order = orderRepository.findById(orderId).orElse(null);
-        if (order == null) {
-            return "取消失敗：找不到編號為 " + orderId + " 的訂單";
+    public Orders cancelOrder(Long orderId, String requesterAccount, String requesterRole) {
+        Orders order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("找不到編號為 " + orderId + " 的訂單"));
+
+        String status = order.getOrderStatus() != null ? order.getOrderStatus() : "SUBMITTED";
+
+        if ("CANCELLED".equals(status)) {
+            throw new IllegalArgumentException("此訂單已經取消");
+        }
+        if ("COMPLETED".equals(status)) {
+            throw new IllegalArgumentException("已完成的訂單無法取消");
         }
 
-        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
-
-        for (OrderItem item : items) {
-            Product product = productRepository.findById(item.getProductId()).orElse(null);
-            if (product != null) {
-                product.setStock(product.getStock() + item.getQuantity());
-                productRepository.save(product);
+        boolean isAdmin = "ADMIN".equals(requesterRole);
+        if (!isAdmin) {
+            if (order.getMemberAccount() == null || !order.getMemberAccount().equals(requesterAccount)) {
+                throw new SecurityException("權限不足：無法取消他人的訂單");
+            }
+            if (!"SUBMITTED".equals(status) && !"ACCEPTED".equals(status)) {
+                throw new IllegalArgumentException("訂單已進入製作或配送階段，請直接聯繫店家協助");
             }
         }
 
-        orderItemRepository.deleteAll(items);
-        orderRepository.delete(order);
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        for (OrderItem item : items) {
+            if (item.getProductId() != null) {
+                productRepository.findById(item.getProductId()).ifPresent(product -> {
+                    product.setStock(product.getStock() + item.getQuantity());
+                    productRepository.save(product);
+                });
+            }
+        }
 
-        return "訂單 #" + orderId + " 已成功取消，庫存已回復！";
+        order.setOrderStatus("CANCELLED");
+        return orderRepository.save(order);
     }
 
     // 6. 付款完成更新狀態

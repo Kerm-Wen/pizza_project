@@ -27,7 +27,7 @@ public class MemberController {
         }
     }
 
-    // 2. 登入 API (使用 HttpSession 記住登入狀態)
+   // 2. 登入 API (使用 HttpSession 記住登入狀態)
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> request, HttpSession session) {
         try {
@@ -35,11 +35,17 @@ public class MemberController {
             String password = request.get("password");
             
             Member member = memberService.login(account, password);
+            String role = (member.getRole() != null) ? member.getRole() : "CUSTOMER";
             
-            // 登入成功後，將會員資訊存入 Session
+            // 登入成功後，將會員資訊與角色存入 Session
             session.setAttribute("loginMember", member);
+            session.setAttribute("loginRole", role);
             
-            return ResponseEntity.ok(Map.of("message", "登入成功！", "name", member.getName()));
+            return ResponseEntity.ok(Map.of(
+                "message", "登入成功！",
+                "name", member.getName(),
+                "role", role
+            ));
         } catch (RuntimeException e) {
             return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
         }

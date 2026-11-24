@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍕 店家後台 - 訂單進度管理</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #fdf8f5;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #e65100;
+            color: white;
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        header h1 { margin: 0; font-size: 22px; }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+        .btn-top {
+            background: white;
+            color: #e65100;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .btn-top:hover { background: #fff3e0; }
+        .btn-logout {
+            background: #b71c1c;
+            color: white;
+            border: 1px solid rgba(255,255,255,0.35);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-logout:hover { background: #8e0000; }
+
+        .container {
+            max-width: 1100px;
+            margin: 25px auto;
+            padding: 0 20px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .filter-btn {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            color: #555;
+        }
+        .filter-btn.active {
+            background: #e65100;
+            color: #fff;
+            border-color: #e65100;
+        }
+
+        .order-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .order-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 18px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+            border-left: 5px solid #e65100;
+        }
+        .order-card.cancelled {
+            border-left-color: #9e9e9e;
+            background: #fafafa;
+        }
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .order-title-group {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .order-id { font-size: 18px; font-weight: bold; color: #e65100; }
+        .order-time { font-size: 13px; color: #666; }
+        .badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-paid { background: #e8f5e9; color: #2e7d32; }
+        .badge-unpaid { background: #ffebee; color: #c62828; }
+        .badge-status { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+        .badge-cancelled { background: #eeeeee; color: #616161; border: 1px solid #bdbdbd; }
+
+        .order-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+            font-size: 14px;
+            margin-bottom: 14px;
+        }
+        .status-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding-top: 12px;
+            border-top: 1px dashed #eee;
+        }
+        .step-btn {
+            padding: 7px 13px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: #fafafa;
+            color: #333;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .step-btn:hover { background: #ffe0b2; border-color: #ff9800; }
+        .step-btn.current {
+            background: #e65100;
+            color: #fff;
+            border-color: #e65100;
+        }
+        .step-btn.cancel-order-btn {
+            background: #fff;
+            color: #c62828;
+            border-color: #ef9a9a;
+        }
+        .step-btn.cancel-order-btn:hover {
+            background: #ffebee;
+            border-color: #c62828;
+        }
+        .step-btn.pay-btn {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-color: #a5d6a7;
+            margin-left: auto;
+        }
+        .step-btn.pay-btn:hover { background: #c8e6c9; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧑‍🍳 店家後台｜訂單進度管理</h1>
+    <div class="header-actions">
+        <button class="btn-top" onclick="loadOrders()">🔄 重新整理</button>
+        <a class="btn-top" href="customer.html">🍕 前往顧客點餐頁</a>
+        <button class="btn-logout" onclick="logoutAdmin()">🚪 登出</button>
+    </div>
+</header>
+
+<div class="container">
+    <div class="toolbar">
+        <div class="filter-group">
+            <button class="filter-btn active" onclick="setFilter('ALL', this)">全部訂單</button>
+            <button class="filter-btn" onclick="setFilter('SUBMITTED', this)">新訂單 (SUBMITTED)</button>
+            <button class="filter-btn" onclick="setFilter('ACCEPTED', this)">已接單 (ACCEPTED)</button>
+            <button class="filter-btn" onclick="setFilter('PREPARING', this)">製作中 (PREPARING)</button>
+            <button class="filter-btn" onclick="setFilter('READY', this)">已完成待取/送 (READY)</button>
+            <button class="filter-btn" onclick="setFilter('DELIVERING', this)">配送中 (DELIVERING)</button>
+            <button class="filter-btn" onclick="setFilter('CANCELLED', this)">已取消 (CANCELLED)</button>
+        </div>
+        <span id="order-count" style="font-size: 13px; color: #666;">載入中...</span>
+    </div>
+
+    <div id="order-list" class="order-list">
+        <p style="text-align: center; color: #666;">訂單資料載入中...</p>
+    </div>
+</div>
+
+<script>
+    let allOrders = [];
+    let currentFilter = 'ALL';
+
+    const STATUS_LABELS = {
+        SUBMITTED: '送出訂單',
+        ACCEPTED: '接到訂單',
+        PREPARING: '製作中',
+        READY: '製作完成',
+        DELIVERING: '配送中',
+        COMPLETED: '已結案',
+        CANCELLED: '已取消'
+    };
+
+    window.addEventListener('DOMContentLoaded', loadOrders);
+
+    // 格式化日期與時間 (YYYY/MM/DD HH:mm:ss)
+    function formatOrderDateTime(dateValue) {
+        if (!dateValue) return '無時間紀錄';
+        const d = new Date(dateValue);
+        if (isNaN(d.getTime())) return String(dateValue);
+
+        const pad = (n) => String(n).padStart(2, '0');
+        const year = d.getFullYear();
+        const month = pad(d.getMonth() + 1);
+        const day = pad(d.getDate());
+        const hours = pad(d.getHours());
+        const minutes = pad(d.getMinutes());
+        const seconds = pad(d.getSeconds());
+
+        return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    async function logoutAdmin() {
+        try {
+            await fetch('/api/members/logout', { method: 'POST' });
+        } catch (error) {
+            console.warn('呼叫登出 API 發生例外，仍執行前端跳轉:', error);
+        } finally {
+            localStorage.removeItem('loginMember');
+            sessionStorage.removeItem('loginMember');
+            window.location.href = 'admin-login.html';
+        }
+    }
+
+    async function loadOrders() {
+        try {
+            const res = await fetch('/api/orders');
+            if (!res.ok) throw new Error('無法取得訂單列表');
+            const data = await res.json();
+            allOrders = data.reverse(); // 最新訂單排在最上面
+            renderOrders();
+        } catch (err) {
+            console.error(err);
+            document.getElementById('order-list').innerHTML =
+                `<p style="color: #c62828; text-align: center;">❌ 載入失敗：${err.message}</p>`;
+        }
+    }
+
+    function setFilter(status, btn) {
+        currentFilter = status;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderOrders();
+    }
+
+    function renderOrders() {
+        const listEl = document.getElementById('order-list');
+        const filtered = currentFilter === 'ALL'
+            ? allOrders
+            : allOrders.filter(o => (o.orderStatus || 'SUBMITTED') === currentFilter);
+
+        document.getElementById('order-count').textContent = `共 ${filtered.length} 筆訂單`;
+
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<p style="text-align: center; color: #888; padding: 30px;">目前沒有符合條件的訂單。</p>';
+            return;
+        }
+
+        listEl.innerHTML = filtered.map(order => {
+            const status = order.orderStatus || 'SUBMITTED';
+            const isCancelled = status === 'CANCELLED';
+            const isCompleted = status === 'COMPLETED';
+            const isPaid = order.paymentStatus === 'PAID';
+            const isDelivery = order.deliveryType === 'DELIVERY';
+
+            const steps = isDelivery
+                ? ['ACCEPTED', 'PREPARING', 'READY', 'DELIVERING', 'COMPLETED']
+                : ['ACCEPTED', 'PREPARING', 'READY', 'COMPLETED'];
+
+            const stepButtonsHtml = isCancelled
+                ? ''
+                : steps.map(stepKey => {
+                    const isCurrent = status === stepKey;
+                    return `
+                        <button class="step-btn ${isCurrent ? 'current' : ''}"
+                                onclick="updateStatus(${order.id}, '${stepKey}')">
+                            ${STATUS_LABELS[stepKey]} (${stepKey})
+                        </button>
+                    `;
+                }).join('');
+
+            const cancelOrderBtnHtml = (!isCancelled && !isCompleted)
+                ? `<button class="step-btn cancel-order-btn" onclick="cancelAdminOrder(${order.id})">❌ 取消此訂單</button>`
+                : '';
+
+            const markPaidBtnHtml = (!isCancelled && !isPaid)
+                ? `<button class="step-btn pay-btn" onclick="markPaid(${order.id})">💵 標記為已付款 (PAID)</button>`
+                : '';
+
+            // 組合這筆訂單的餐點明細 HTML
+            const detailList = order.items || order.orderItems || [];
+            const itemsHtml = detailList.length > 0
+                ? `
+                    <div style="margin-bottom: 12px; padding: 10px 12px; background: #fff8f2; border-radius: 6px; border: 1px dashed #ffcc80;">
+                        <div style="font-size: 13px; font-weight: bold; color: #e65100; margin-bottom: 6px;">🍕 餐點明細：</div>
+                        <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #444; line-height: 1.6;">
+                            ${detailList.map(item => `
+                                <li>
+                                    <strong>${item.productName}</strong> × ${item.quantity}
+                                    ${item.customization ? `<span style="color: #d84315;">（${item.customization}）</span>` : ''}
+                                    <span style="color: #777;">— NT$ ${item.price} / 份</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `
+                : '<div style="margin-bottom: 12px; font-size: 13px; color: #999;">（無餐點明細資料）</div>';
+
+            const actionsHtml = (stepButtonsHtml || cancelOrderBtnHtml || markPaidBtnHtml)
+                ? `
+                    <div class="status-actions">
+                        ${stepButtonsHtml}
+                        ${cancelOrderBtnHtml}
+                        ${markPaidBtnHtml}
+                    </div>
+                  `
+                : '';
+
+            return `
+                <div class="order-card ${isCancelled ? 'cancelled' : ''}">
+                    <div class="order-header">
+                        <div class="order-title-group">
+                            <span class="order-id">訂單 #${order.id}</span>
+                            <span class="order-time">🕒 下單時間：${formatOrderDateTime(order.createdAt)}</span>
+                        </div>
+                        <div class="badges">
+                            <span class="badge ${isPaid ? 'badge-paid' : 'badge-unpaid'}">
+                                付款：${order.paymentStatus}
+                            </span>
+                            <span class="badge ${isCancelled ? 'badge-cancelled' : 'badge-status'}">
+                                進度：${STATUS_LABELS[status] || status} (${status})
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="order-info">
+                        <div><strong>顧客姓名：</strong>${order.customerName || '-'}</div>
+                        <div><strong>會員帳號：</strong>${order.memberAccount || 'Guest'}</div>
+                        <div><strong>總金額：</strong><span style="color:#d84315; font-weight:bold;">NT$ ${order.totalAmount || 0}</span></div>
+                        <div><strong>付款方式：</strong>${order.paymentMethod || '-'}</div>
+                        <div><strong>取餐方式：</strong>${isDelivery ? '🛵 專人外送' : '🛍️ 門市自取'}</div>
+                        ${isDelivery ? `<div><strong>外送地址：</strong>${order.deliveryAddress || '未填寫'}</div>` : ''}
+                    </div>
+
+                    ${itemsHtml}
+                    ${actionsHtml}
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function updateStatus(orderId, orderStatus) {
+        try {
+            const res = await fetch(`/api/orders/${orderId}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderStatus })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert('❌ 更新失敗：' + (data.message || '請稍後再試'));
+                return;
+            }
+            await loadOrders();
+        } catch (err) {
+            console.error(err);
+            alert('❌ 網路錯誤：' + err.message);
+        }
+    }
+
+    async function cancelAdminOrder(orderId) {
+        if (!confirm(`確定要取消訂單 #${orderId} 嗎？取消後商品庫存將自動回補。`)) return;
+
+        try {
+            const res = await fetch(`/api/orders/${orderId}/cancel`, {
+                method: 'PATCH'
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert('❌ 取消失敗：' + (data.message || '請稍後再試'));
+                return;
+            }
+            alert(data.message || `訂單 #${orderId} 已取消`);
+            await loadOrders();
+        } catch (err) {
+            console.error(err);
+            alert('❌ 網路錯誤：' + err.message);
+        }
+    }
+
+    async function markPaid(orderId) {
+        try {
+            const res = await fetch(`/api/orders/${orderId}/pay`, {
+                method: 'PATCH'
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert('❌ 更新付款失敗：' + (data.message || '請稍後再試'));
+                return;
+            }
+            await loadOrders();
+        } catch (err) {
+            console.error(err);
+            alert('❌ 網路錯誤：' + err.message);
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -42,10 +42,26 @@ public class OrderController {
         }
     }
 
-    // 4. 取消訂單 (DELETE /api/orders/{id})
-    @DeleteMapping("/{id}")
-    public String cancelOrder(@PathVariable Long id) {
-        return orderService.cancelOrder(id);
+    // 4. 取消訂單並回復庫存 (PATCH /api/orders/{id}/cancel)
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<?> cancelOrder(@PathVariable Long id, HttpSession session) {
+        Member loginMember = (Member) session.getAttribute("loginMember");
+        if (loginMember == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "請先登入會員才能取消訂單！"));
+        }
+        String loginRole = (String) session.getAttribute("loginRole");
+
+        try {
+            Orders cancelledOrder = orderService.cancelOrder(id, loginMember.getAccount(), loginRole);
+            return ResponseEntity.ok(Map.of(
+                "message", "訂單 #" + id + " 已成功取消，庫存已回復！",
+                "order", cancelledOrder
+            ));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(Map.of("message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 
     // 5. 查詢目前登入會員的歷史訂單 (GET /api/orders/my-orders)

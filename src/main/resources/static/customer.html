@@ -287,8 +287,9 @@
 
 <!-- 📦 歷史訂單檢視彈跳視窗 (Modal) -->
 <div id="orders-modal" class="modal">
-    <div class="modal-content" style="width: 650px; max-width: 90%; max-height: 80vh; overflow-y: auto;">
-        <h3 style="color: #e65100; border-bottom: 2px solid #ffe0b2; padding-bottom: 10px;">📦 我的歷史訂單記錄</h3>
+    <div class="modal-content" style="position: relative; width: 650px; max-width: 90%; max-height: 80vh; overflow-y: auto;">
+        <button onclick="closeOrdersModal()" title="關閉視窗" style="position: sticky; top: 0; float: right; background: #f5f5f5; color: #555; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 18px; line-height: 32px; text-align: center; cursor: pointer; z-index: 5;">✕</button>
+        <h3 style="margin-top: 0; color: #e65100; border-bottom: 2px solid #ffe0b2; padding-bottom: 10px; padding-right: 40px;">📦 我的歷史訂單記錄</h3>
         <div id="my-orders-container" style="margin-top: 15px;">
             <p style="text-align: center; color: #666;">資料載入中...</p>
         </div>
@@ -354,6 +355,23 @@
         checkCurrentMember();
         loadProducts();
     });
+
+    // 格式化日期與時間 (YYYY/MM/DD HH:mm:ss)
+    function formatOrderDateTime(dateValue) {
+        if (!dateValue) return '無時間紀錄';
+        const d = new Date(dateValue);
+        if (isNaN(d.getTime())) return String(dateValue);
+
+        const pad = (n) => String(n).padStart(2, '0');
+        const year = d.getFullYear();
+        const month = pad(d.getMonth() + 1);
+        const day = pad(d.getDate());
+        const hours = pad(d.getHours());
+        const minutes = pad(d.getMinutes());
+        const seconds = pad(d.getSeconds());
+
+        return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+    }
 
     // 1. 載入商品菜單
     async function loadProducts() {
@@ -698,11 +716,44 @@
         document.getElementById('orders-modal').style.display = 'none';
     }
 
+    // 取消訂單
+    async function cancelMyOrder(orderId) {
+        if (!confirm(`確定要取消訂單 #${orderId} 嗎？取消後將無法恢復。`)) return;
+
+        try {
+            const response = await fetch(`/api/orders/${orderId}/cancel`, {
+                method: 'PATCH'
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                alert('❌ 取消失敗：' + (data.message || '請稍後再試'));
+                return;
+            }
+
+            alert(data.message || `訂單 #${orderId} 已取消`);
+            fetchMyOrders();
+            loadProducts();
+        } catch (error) {
+            console.error('取消訂單發生錯誤:', error);
+            alert('❌ 取消訂單時發生網路錯誤，請稍後再試');
+        }
+    }
+
     // 根據訂單狀態、付款狀態與取餐方式，產生步驟進度條 HTML
     function renderOrderProgressBar(order) {
+        const status = order.orderStatus || 'SUBMITTED';
+
+        if (status === 'CANCELLED') {
+            return `
+                <div style="margin: 12px 0; padding: 10px 12px; background: #ffebee; border: 1px solid #ffcdd2; border-radius: 8px; color: #c62828; font-size: 13px; font-weight: bold; text-align: center;">
+                    ❌ 此訂單已取消（商品庫存已回補）
+                </div>
+            `;
+        }
+
         const isDelivery = order.deliveryType === 'DELIVERY';
         const isPaid = order.paymentStatus === 'PAID';
-        const status = order.orderStatus || 'SUBMITTED';
 
         // 自取顯示 5 步（免顯示「配送中」）；外送顯示 6 步
         const steps = isDelivery
@@ -802,9 +853,11 @@
             let html = `<div style="display: flex; flex-direction: column; gap: 12px;">`;
 
             orders.forEach(order => {
-                const statusColor = order.paymentStatus === 'UNPAID' ? '#c62828' : '#2e7d32';
-                const statusBg = order.paymentStatus === 'UNPAID' ? '#ffebee' : '#e8f5e9';
+                const isCancelled = order.orderStatus === 'CANCELLED';
+                const statusColor = isCancelled ? '#757575' : (order.paymentStatus === 'UNPAID' ? '#c62828' : '#2e7d32');
+                const statusBg = isCancelled ? '#eeeeee' : (order.paymentStatus === 'UNPAID' ? '#ffebee' : '#e8f5e9');
                 const deliveryText = order.deliveryType === 'DELIVERY' ? '🛵 專人外送' : '🛍️ 門市自取';
+                const canCancel = (order.orderStatus === 'SUBMITTED' || order.orderStatus === 'ACCEPTED');
 
                 const detailList = order.items || order.orderItems || [];
                 let itemsHtml = '';
@@ -827,13 +880,25 @@
                 }
 
                 const progressBarHtml = renderOrderProgressBar(order);
+                const cancelBtnHtml = canCancel
+                    ? `
+                        <div style="text-align: right; margin-top: 12px;">
+                            <button onclick="cancelMyOrder(${order.id})" style="background: #fff; color: #d32f2f; border: 1px solid #d32f2f; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold;">
+                                ❌ 取消訂單
+                            </button>
+                        </div>
+                      `
+                    : '';
 
                 html += `
-                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: #fafafa; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px;">
-                            <span style="font-weight: bold; color: #e65100;">訂單編號：#${order.id}</span>
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: ${isCancelled ? '#f5f5f5' : '#fafafa'}; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; gap: 8px; flex-wrap: wrap;">
+                            <div>
+                                <span style="font-weight: bold; color: #e65100;">訂單編號：#${order.id}</span>
+                                <span style="margin-left: 10px; font-size: 12px; color: #666;">🕒 ${formatOrderDateTime(order.createdAt)}</span>
+                            </div>
                             <span style="padding: 3px 8px; border-radius: 4px; font-size: 12px; background-color: ${statusBg}; color: ${statusColor}; font-weight: bold;">
-                                ${order.paymentStatus}
+                                ${isCancelled ? 'CANCELLED' : order.paymentStatus}
                             </span>
                         </div>
                         <div style="font-size: 14px; color: #444; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
@@ -844,6 +909,7 @@
                         </div>
                         ${progressBarHtml}
                         ${itemsHtml}
+                        ${cancelBtnHtml}
                     </div>
                 `;
             });
